@@ -44,8 +44,9 @@ using namespace llvm;
 
 extern llvm::PointerType *g_PRegStruct;
 
+
 // convert a jump table to a data section of symbols
-static DataSection* tableToDataSection(VA new_base, const JumpTable& jt) {
+static DataSection * tableToDataSection (VA new_base, const JumpTable& jt) {
     DataSection *ds = new DataSection();
     
     const vector<VA>& entries = jt.getJumpTable();
@@ -64,8 +65,10 @@ static DataSection* tableToDataSection(VA new_base, const JumpTable& jt) {
     return ds;
 }
 
+
+
 // convert an index table to a data blob
-static DataSection* tableToDataSection(VA new_base, const JumpIndexTable& jit) {
+static DataSection * tableToDataSection (VA new_base, const JumpIndexTable& jit) {
     DataSection *ds = new DataSection();
     
     const vector<uint8_t>& entries = jit.getJumpIndexTable();
@@ -75,6 +78,8 @@ static DataSection* tableToDataSection(VA new_base, const JumpIndexTable& jit) {
 
     return ds;
 }
+
+
 
 template <class T>
 static bool addTableDataSection(NativeModulePtr natMod, 
@@ -86,7 +91,8 @@ static bool addTableDataSection(NativeModulePtr natMod,
 
     // ensure we make this the last data section
     newVA = 0;
-    while( git != globaldata.end() ) {
+    while (git != globaldata.end())
+    {
         const DataSection         &dt = *git;
         uint64_t extent = dt.getBase() + dt.getSize();
         if(newVA < extent) {
@@ -108,21 +114,21 @@ static bool addTableDataSection(NativeModulePtr natMod,
     string bufferName = "data_0x" + to_string<VA>(newVA, hex);
     StructType *st_opaque = StructType::create(M->getContext());
     GlobalVariable *gv = new GlobalVariable(*M,
-                            st_opaque, 
-                            true,
-                            GlobalVariable::InternalLinkage,
-                            NULL,
-                            bufferName);
+                                            st_opaque, 
+                                            true,
+                                            GlobalVariable::InternalLinkage,
+                                            NULL,
+                                            bufferName);
 
     vector<Type*> data_section_types;
     vector<Constant*>    secContents;
 
     dataSectionToTypesContents(globaldata, 
-            *ds, 
-            M, 
-            secContents, 
-            data_section_types, 
-            false);
+                               *ds, 
+                               M, 
+                               secContents, 
+                               data_section_types, 
+                               false);
 
     st_opaque->setBody(data_section_types, true);
     Constant *cst = ConstantStruct::get(st_opaque, secContents);
@@ -131,28 +137,33 @@ static bool addTableDataSection(NativeModulePtr natMod,
 
     return true;
 
-} 
+}
+
+
 bool addJumpTableDataSection(NativeModulePtr natMod,
-        Module *M,
-        VA &newVA,
-        const JumpTable& table)
+                             Module *M,
+                             VA &newVA,
+                             const JumpTable& table)
 {
     return addTableDataSection<JumpTable>(natMod, M, newVA, table);
 }
 
+
+
 bool addJumpIndexTableDataSection(NativeModulePtr natMod,
-        Module *M,
-        VA &newVA,
-        const JumpIndexTable& table)
+                                  Module *M,
+                                  VA &newVA,
+                                  const JumpIndexTable& table)
 {
     return addTableDataSection<JumpIndexTable>(natMod, M, newVA, table);
 }
 
-void doJumpTableViaData(
-        NativeModulePtr natM, 
-        BasicBlock *& block, 
-        InstPtr ip, 
-        MCInst &inst)
+
+
+void doJumpTableViaData(NativeModulePtr natM, 
+                        llvm::BasicBlock *& block, 
+                        InstPtr ip, 
+                        llvm::MCInst &inst)
 {
     Function *ourF = block->getParent();
     Module *M = ourF->getParent();
@@ -190,11 +201,12 @@ void doJumpTableViaData(
     return;
 }
 
-void doJumpTableViaSwitch(
-        NativeModulePtr natM, 
-        BasicBlock *& block, 
-        InstPtr ip, 
-        MCInst &inst)
+
+
+void doJumpTableViaSwitch(NativeModulePtr natM, 
+                          llvm::BasicBlock *& block, 
+                          InstPtr ip, 
+                          llvm::MCInst &inst)
 {
 
     Function *F = block->getParent();
@@ -236,9 +248,9 @@ void doJumpTableViaSwitch(
 
     // populate switch
     int myindex = 0;
-    for(std::vector<VA>::const_iterator itr = jmpblocks.begin();
-        itr != jmpblocks.end();
-        itr++) 
+    for (std::vector<VA>::const_iterator itr = jmpblocks.begin();
+         itr != jmpblocks.end();
+         itr++) 
     {
         std::string  bbname = "block_0x"+to_string<VA>(*itr, std::hex);
         BasicBlock *toBlock = bbFromStrName(bbname, F);
@@ -249,12 +261,12 @@ void doJumpTableViaSwitch(
 
 }
 
-static BasicBlock *emitJumpIndexWrite(
-        Function *F,
-        uint8_t idx_val,
-        unsigned dest_reg,
-        BasicBlock *contBlock
-        ) 
+
+
+static BasicBlock *emitJumpIndexWrite(Function *F,
+                                      uint8_t idx_val,
+                                      unsigned dest_reg,
+                                      BasicBlock *contBlock)
 {
     // create new block
     BasicBlock *writeBlock = 
@@ -269,12 +281,11 @@ static BasicBlock *emitJumpIndexWrite(
     return writeBlock; 
 }
 
-void doJumpIndexTableViaSwitch(
-        BasicBlock *&block, 
-        InstPtr ip)
+
+void doJumpIndexTableViaSwitch(BasicBlock *&block, InstPtr ip)
 {
-    Function *F = block->getParent();
-    Module *M = F->getParent();
+    Function * F = block->getParent();
+    Module *   M = F->getParent();
     // we know this conforms to
     // movzx reg32, [base+disp]
 
@@ -309,17 +320,16 @@ void doJumpIndexTableViaSwitch(
 
 
     // create a switch inst
-    SwitchInst *theSwitch = SwitchInst::Create(
-            real_index, 
-            defaultBlock,
-            idxblocks.size(),
-            block);
+    SwitchInst *theSwitch = SwitchInst::Create(real_index,
+                                               defaultBlock,
+                                               idxblocks.size(),
+                                               block);
 
     // populate switch
     int myindex = 0;
-    for(std::vector<uint8_t>::const_iterator itr = idxblocks.begin();
-        itr != idxblocks.end();
-        itr++) 
+    for (std::vector<uint8_t>::const_iterator itr = idxblocks.begin();
+         itr != idxblocks.end();
+         itr++) 
     {
         BasicBlock *writeBl = emitJumpIndexWrite(F, *itr, dest.getReg(), continueBlock );
         theSwitch->addCase(CONST_V<32>(block, myindex), writeBl);

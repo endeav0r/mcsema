@@ -33,37 +33,50 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <vector>
 
-template <class T> class Table {
-public:
-    Table(const std::vector<T> &table, int entry): m_table(table), m_entry(entry) {};
-    virtual int getInitialEntry() const { return this->m_entry; }
-    virtual ~Table() {};
 
-protected:
-    std::vector<T> m_table;
-    int m_entry;
-    virtual const std::vector<T>& getTable(void) const { return this->m_table; }
-    virtual std::vector<T>& getTable(void) { return this->m_table; }
+
+template <class T> class Table {
+    protected:
+        std::vector<T> m_table;
+        int m_entry;
+        virtual const std::vector<T>& getTable() const { return this->m_table; }
+        virtual       std::vector<T>& getTable()       { return this->m_table; }
+
+
+    public:
+        Table (const std::vector<T> &table, int entry)
+          : m_table(table), m_entry(entry) {}
+
+        virtual ~Table () {};
+
+        virtual int getInitialEntry () const { return this->m_entry; }
 };
+
+
 
 class JumpTable : public Table<VA> {
+    public:
+        JumpTable (const std::vector<VA> &table, int entry)
+            : Table<VA>::Table(table, entry) {}
 
-public:
-    JumpTable(const std::vector<VA> &table, int entry): 
-        Table<VA>::Table(table, entry) {};
-    virtual const std::vector<VA>& getJumpTable(void) const { return this->getTable(); }
-    virtual std::vector<VA>& getJumpTable(void) { return this->getTable(); }
-    virtual ~JumpTable() {};
+        virtual ~JumpTable() {}
+
+        virtual const std::vector<VA>& getJumpTable () const { return this->getTable(); }
+        virtual       std::vector<VA>& getJumpTable ()       { return this->getTable(); }
 
 };
 
+
+
 class JumpIndexTable : public Table<uint8_t> {
-public:
-    JumpIndexTable(const std::vector<uint8_t> &table, int entry): 
-        Table<uint8_t>::Table(table, entry) {};
-    virtual const std::vector<uint8_t>& getJumpIndexTable(void) const { return this->getTable(); }
-    virtual std::vector<uint8_t>& getJumpIndexTable(void) { return this->getTable(); }
-    virtual ~JumpIndexTable() {};
+    public:
+        JumpIndexTable (const std::vector<uint8_t> &table, int entry)
+            : Table<uint8_t>::Table(table, entry) {}
+
+        virtual ~JumpIndexTable() {}
+
+        virtual const std::vector<uint8_t>& getJumpIndexTable () const { return this->getTable(); }
+        virtual       std::vector<uint8_t>& getJumpIndexTable ()       { return this->getTable(); }
 
 };
 
@@ -72,15 +85,15 @@ typedef boost::shared_ptr<JumpTable> JumpTablePtr;
 typedef boost::shared_ptr<JumpIndexTable> JumpIndexTablePtr;
 
 
-bool addJumpTableDataSection(NativeModulePtr natMod, 
-        llvm::Module *M, 
-        VA  &newVA, 
-        const JumpTable& table);
+bool addJumpTableDataSection(NativeModulePtr natMod,
+                             llvm::Module *M,
+                             VA  &newVA,
+                             const JumpTable& table);
 
-bool addJumpIndexTableDataSection(NativeModulePtr natMod, 
-        llvm::Module *M, 
-        VA &newVA, 
-        const JumpIndexTable& table);
+bool addJumpIndexTableDataSection(NativeModulePtr natMod,
+                                  llvm::Module *M,
+                                  VA &newVA,
+                                  const JumpIndexTable& table);
 
 // check for the format:
 // jmp [reg*4+<relocated offset>]
@@ -92,11 +105,11 @@ static bool isConformantJumpInst(InstPtr jmpinst) {
     const llvm::MCOperand& index = inst.getOperand(2);
     const llvm::MCOperand& disp = inst.getOperand(3);
 
-    if(scale.isImm() &&             // scale:
-       scale.getImm() == 4 &&       // must be an immediate and be 4
-       index.isReg() &&             // index must be a register
-       disp.isImm() &&              // displacement must be an imm32
-       disp.getImm() == 0) {        // and be 0, since its relocated
+    if (scale.isImm() &&             // scale:
+        (scale.getImm() == 4) &&       // must be an immediate and be 4
+        index.isReg() &&             // index must be a register
+        disp.isImm() &&              // displacement must be an imm32
+        (disp.getImm() == 0)) {        // and be 0, since its relocated
 
         return true;
     }
@@ -104,20 +117,16 @@ static bool isConformantJumpInst(InstPtr jmpinst) {
     return false;
 }
 
-void doJumpTableViaData(
-        NativeModulePtr natM, 
-        llvm::BasicBlock *& block, 
-        InstPtr ip, 
-        llvm::MCInst &inst);
+void doJumpTableViaData(NativeModulePtr natM, 
+                        llvm::BasicBlock *& block, 
+                        InstPtr ip, 
+                        llvm::MCInst &inst);
 
-void doJumpTableViaSwitch(
-        NativeModulePtr natM, 
-        llvm::BasicBlock *& block, 
-        InstPtr ip, 
-        llvm::MCInst &inst);
+void doJumpTableViaSwitch(NativeModulePtr natM, 
+                          llvm::BasicBlock *& block, 
+                          InstPtr ip, 
+                          llvm::MCInst &inst);
 
-void doJumpIndexTableViaSwitch(
-        llvm::BasicBlock *& block, 
-        InstPtr ip);
+void doJumpIndexTableViaSwitch(llvm::BasicBlock *& block, InstPtr ip);
 
 #endif

@@ -92,31 +92,30 @@ class JumpTable;
 class JumpIndexTable;
 typedef boost::shared_ptr<ExternalCodeRef> ExternalCodeRefPtr;
 typedef boost::shared_ptr<ExternalDataRef> ExternalDataRefPtr;
-typedef boost::shared_ptr<JumpTable> JumpTablePtr;
-typedef boost::shared_ptr<JumpIndexTable> JumpIndexTablePtr;
+typedef boost::shared_ptr<JumpTable>       JumpTablePtr;
+typedef boost::shared_ptr<JumpIndexTable>  JumpIndexTablePtr;
 
 class BufferMemoryObject : public llvm::MemoryObject {
-private:
-    std::vector<uint8_t> Bytes;
-public:
-    BufferMemoryObject( const uint8_t   *bytes,
-                        uint64_t        length) {
-        for( unsigned int i = 0; i < length; i++ ) {
-            this->Bytes.push_back(bytes[i]);
+    private:
+        std::vector<uint8_t> Bytes;
+    public:
+        BufferMemoryObject (const uint8_t * bytes, uint64_t length) {
+            for (unsigned int i = 0; i < length; i++) {
+                this->Bytes.push_back(bytes[i]);
+            }
         }
-        return;
-    }
 
-    uint64_t getBase() const { return 0; }
-    uint64_t getExtent() const { return this->Bytes.size(); }
+        uint64_t getBase   () const { return 0; }
+        uint64_t getExtent () const { return this->Bytes.size(); }
 
-    int readByte(uint64_t addr, uint8_t *byte) const {
-        if (addr > this->getExtent())
-            return -1;
-        *byte = this->Bytes[addr];
-        return 0;
-    }
+        int readByte (uint64_t addr, uint8_t * byte) const {
+            if (addr > this->getExtent())
+                return -1;
+            *byte = this->Bytes[addr];
+            return 0;
+        }
 };
+
 
 enum ModuleInputFormat {
     COFFObject,
@@ -125,22 +124,24 @@ enum ModuleInputFormat {
     ProtoBuff
 };
 
-const llvm::Target *findDisTarget(std::string );
-NativeModulePtr readModule(std::string, ModuleInputFormat, std::list<VA>);
+
+const llvm::Target *findDisTarget (std::string arch);
+
+NativeModulePtr readModule (std::string, ModuleInputFormat, std::list<VA>);
 
 // used in testSemantics.cpp via funcFromBuff
-NativeBlockPtr blockFromBuff( VA, 
-                              BufferMemoryObject &, 
-                              const llvm::MCDisassembler *, 
-                              llvm::MCInstPrinter *);
+NativeBlockPtr blockFromBuff(VA, 
+                             BufferMemoryObject &, 
+                             const llvm::MCDisassembler *, 
+                             llvm::MCInstPrinter *);
 
 // used in testSemantics.cpp
-NativeFunctionPtr funcFromBuff( VA, 
-                                BufferMemoryObject &, 
-                                const llvm::MCDisassembler *, 
-                                llvm::MCInstPrinter *);
+NativeFunctionPtr funcFromBuff(VA, 
+                               BufferMemoryObject &, 
+                               const llvm::MCDisassembler *, 
+                               llvm::MCInstPrinter *);
 
-void addExterns(std::list<NativeFunctionPtr>, NativeModulePtr); 
+void addExterns (std::list<NativeFunctionPtr>, NativeModulePtr); 
 
 std::string dumpProtoBuf(NativeModulePtr);
 

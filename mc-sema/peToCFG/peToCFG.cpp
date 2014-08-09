@@ -40,19 +40,15 @@ using namespace llvm;
 using namespace std;
 
 
-
-
-
-
 const llvm::Target *findDisTarget(string arch) {
-    const llvm::Target  *tgt = NULL;
+    const llvm::Target * tgt = NULL;
 
-    for(llvm::TargetRegistry::iterator  it = llvm::TargetRegistry::begin(),
-        ie = llvm::TargetRegistry::end();
-        it != ie;
-        ++it)
+    for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
+         ie = llvm::TargetRegistry::end();
+         it != ie;
+         ++it)
     {  
-        if( arch == it->getName() ) {
+        if(arch == it->getName()) {
             tgt = &*it;
             break;
         }
@@ -61,41 +57,42 @@ const llvm::Target *findDisTarget(string arch) {
     return tgt;
 }
 
-class cfg_visitor : public boost::default_bfs_visitor {
-private:
-    NativeFunctionPtr   natFun;
-    NativeModulePtr     natMod;
-public:
-    cfg_visitor(NativeFunctionPtr n, NativeModulePtr m) : 
-        natFun(n), natMod(m) { }
 
-    template < typename Vertex, typename Graph >
-    void discover_vertex(Vertex u, const Graph & g) const;
+
+class cfg_visitor : public boost::default_bfs_visitor {
+    private:
+        NativeFunctionPtr natFun;
+        NativeModulePtr   natMod;
+    public:
+        cfg_visitor(NativeFunctionPtr n, NativeModulePtr m)
+            : natFun(n), natMod(m) {}
+
+        template <typename Vertex, typename Graph>
+        void discover_vertex (Vertex u, const Graph & g) const;
 };
 
-template <typename Vertex, typename Graph>
-void cfg_visitor::discover_vertex(Vertex u, const Graph &g) const {
-    NativeBlockPtr  curBlock = this->natFun->block_from_id(u);
-   
-    LASSERT( curBlock, "");
 
-    list<InstPtr>   stmts = curBlock->get_insts();
+template <typename Vertex, typename Graph>
+void cfg_visitor::discover_vertex(Vertex u, const Graph & g) const {
+    NativeBlockPtr curBlock = this->natFun->block_from_id(u);
+   
+    LASSERT(curBlock, "");
+
+    std::list<InstPtr> stmts = curBlock->get_insts();
     
-    for(list<InstPtr>::iterator it = stmts.begin(); 
-        it != stmts.end(); 
-        ++it) 
+    for (std::list<InstPtr>::iterator it = stmts.begin(); 
+         it != stmts.end(); 
+         ++it) 
     {
         InstPtr inst = *it;
 
-        if( inst->has_ext_call_target() ) {
-            ExternalCodeRefPtr   ex = inst->get_ext_call_target();
-
+        if (inst->has_ext_call_target()) {
+            ExternalCodeRefPtr ex = inst->get_ext_call_target();
             this->natMod->addExtCall(ex);
         }
 
-        if( inst->has_ext_data_ref() ) {
-            ExternalDataRefPtr  ex = inst->get_ext_data_ref();
-
+        if (inst->has_ext_data_ref()) {
+            ExternalDataRefPtr ex = inst->get_ext_data_ref();
             this->natMod->addExtDataRef(ex);
         }
     } 
@@ -103,102 +100,103 @@ void cfg_visitor::discover_vertex(Vertex u, const Graph &g) const {
     return;
 }
 
+
 void addExterns(list<NativeFunctionPtr> funcs, NativeModulePtr mod) {
-    for(list<NativeFunctionPtr>::iterator fit = funcs.begin(); 
-        fit != funcs.end();
-        ++fit)
+    for (std::list<NativeFunctionPtr>::iterator fit = funcs.begin(); 
+         fit != funcs.end();
+         ++fit)
     {
-        NativeFunctionPtr   fun = *fit;
-        cfg_visitor         visitor(fun, mod);
-        CFG                 funcGraph = fun->get_cfg();
+        NativeFunctionPtr fun = *fit;
+        cfg_visitor       visitor(fun, mod);
+        CFG               funcGraph = fun->get_cfg();
 
         boost::breadth_first_search(funcGraph, 
-                                boost::vertex(0, funcGraph), 
-                                boost::visitor(visitor));
+                                    boost::vertex(0, funcGraph), 
+                                    boost::visitor(visitor));
     }
 
     return;
 }
 
-InstPtr deserializeInst(const ::Instruction &inst, LLVMByteDecoder &decoder)
+InstPtr deserializeInst (const Instruction & inst, LLVMByteDecoder & decoder)
 {
-  VA                      addr = inst.inst_addr();
-  boost::int64_t          tr_tgt = inst.true_target();
-  boost::int64_t          fa_tgt = inst.false_target();
-  //boost::uint32_t         len = inst.inst_len();
-  string                  instData = inst.inst_bytes();
-  vector<boost::uint8_t>  bytes(instData.begin(), instData.end());
-  BaseBufferMemoryObject  bbmo(bytes, addr);
+    VA                     addr = inst.inst_addr();
+    boost::int64_t         tr_tgt = inst.true_target();
+    boost::int64_t         fa_tgt = inst.false_target();
+    //boost::uint32_t len = inst.inst_len();
+    string                 instData = inst.inst_bytes();
+    vector<boost::uint8_t> bytes(instData.begin(), instData.end());
+    BaseBufferMemoryObject bbmo(bytes, addr);
 
-  //produce an MCInst from the instruction buffer using the ByteDecoder
-  InstPtr ip = decoder.getInstFromBuff(addr, &bbmo);
+    //produce an MCInst from the instruction buffer using the ByteDecoder
+    InstPtr ip = decoder.getInstFromBuff(addr, &bbmo);
 
-  if(tr_tgt > 0)
-    ip->set_tr(tr_tgt);
+    if (tr_tgt > 0)
+        ip->set_tr(tr_tgt);
 
-  if(fa_tgt > 0)
-    ip->set_fa(fa_tgt);
+    if (fa_tgt > 0)
+        ip->set_fa(fa_tgt);
 
-  if(inst.has_data_offset())
-    ip->set_data_offset(inst.data_offset());
+    if (inst.has_data_offset())
+        ip->set_data_offset(inst.data_offset());
 
-  if(inst.has_ext_call_name())
-  {
-    ExternalCodeRefPtr p(new ExternalCodeRef(inst.ext_call_name()));
-    ip->set_ext_call_target(p);
-  }
+    if (inst.has_ext_call_name())
+    {
+        ExternalCodeRefPtr p(new ExternalCodeRef(inst.ext_call_name()));
+        ip->set_ext_call_target(p);
+    }
 
-  if(inst.has_ext_data_name()) 
-  {
-    ExternalDataRefPtr p(new ExternalDataRef(inst.ext_data_name()));
-    ip->set_ext_data_ref(p);
-  }
+    if (inst.has_ext_data_name()) 
+    {
+        ExternalDataRefPtr p(new ExternalDataRef(inst.ext_data_name()));
+        ip->set_ext_data_ref(p);
+    }
 
-  if(inst.has_call_target()) 
-  {
-      ip->set_call_tgt(inst.call_target());
-  }
+    if (inst.has_call_target()) 
+    {
+        ip->set_call_tgt(inst.call_target());
+    }
 
-  if(inst.has_reloc_offset()) {
-      ip->set_reloc_offset(inst.reloc_offset());
-  }
+    if (inst.has_reloc_offset()) {
+        ip->set_reloc_offset(inst.reloc_offset());
+    }
 
-  if(inst.has_jump_table()) {
-      // create new jump table
+    if (inst.has_jump_table()) {
+        // create new jump table
 
-      const ::JumpTbl &jmp_tbl = inst.jump_table();
-      vector<VA> table_entries;
+        const ::JumpTbl &jmp_tbl = inst.jump_table();
+        vector<VA> table_entries;
 
-      for(int i = 0; i < jmp_tbl.table_entries_size(); i++) {
-          table_entries.push_back(jmp_tbl.table_entries(i));
-      }
-      
-      JumpTable *jmp = new JumpTable(table_entries, jmp_tbl.zero_offset());
-      ip->set_jump_table(JumpTablePtr(jmp));
-  }
+        for (int i = 0; i < jmp_tbl.table_entries_size(); i++) {
+            table_entries.push_back(jmp_tbl.table_entries(i));
+        }
+        
+        JumpTable *jmp = new JumpTable(table_entries, jmp_tbl.zero_offset());
+        ip->set_jump_table(JumpTablePtr(jmp));
+    }
 
-  if(inst.has_jump_index_table()) {
-      // create new jump table
+    if (inst.has_jump_index_table()) {
+        // create new jump table
 
-      const ::JumpIndexTbl &idx_tbl = inst.jump_index_table();
-      const string& serialized_tbl = idx_tbl.table_entries();
-      vector<uint8_t> tbl_bytes(serialized_tbl.begin(), serialized_tbl.end());
-      
-      JumpIndexTable *idx = new JumpIndexTable(tbl_bytes, idx_tbl.zero_offset());
-      ip->set_jump_index_table(JumpIndexTablePtr(idx));
-  }
+        const JumpIndexTbl & idx_tbl = inst.jump_index_table();
+        const std::string & serialized_tbl = idx_tbl.table_entries();
+        std::vector<uint8_t> tbl_bytes(serialized_tbl.begin(), serialized_tbl.end());
+        
+        JumpIndexTable * idx = new JumpIndexTable(tbl_bytes, idx_tbl.zero_offset());
+        ip->set_jump_index_table(JumpIndexTablePtr(idx));
+    }
 
-  return ip;
+    return ip;
 }
 
-NativeBlockPtr  deserializeBlock( const ::Block   &block,
-                                  LLVMByteDecoder &decoder)
+NativeBlockPtr deserializeBlock(const Block & block,
+                                LLVMByteDecoder & decoder)
 {
-  NativeBlockPtr  natB = 
-    NativeBlockPtr(new NativeBlock(block.base_address(), decoder.getPrinter()));
-  /* read all the instructions in */
-  for(int i = 0; i < block.insts_size(); i++)
-    natB->add_inst(deserializeInst(block.insts(i), decoder));
+    NativeBlockPtr natB = NativeBlockPtr(new NativeBlock(block.base_address(),
+                                                         decoder.getPrinter()));
+    /* read all the instructions in */
+    for(int i = 0; i < block.insts_size(); i++)
+        natB->add_inst(deserializeInst(block.insts(i), decoder));
 
   /* add the follows */
   for(int i = 0; i < block.block_follows_size(); i++)
