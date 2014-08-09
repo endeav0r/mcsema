@@ -4,10 +4,10 @@
 class NativeBlock {
     private:
         //a list of instructions
-        VA                      baseAddr;
-        std::list<InstPtr>      instructions;
-        std::list<VA>           follows;
-        llvm::MCInstPrinter     *MyPrinter;
+        VA                    baseAddr;
+        std::list<InstPtr>    instructions;
+        std::list<VA>         follows;
+        llvm::MCInstPrinter * MyPrinter;
     public:
         NativeBlock (VA, llvm::MCInstPrinter *);
 
