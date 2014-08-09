@@ -40,134 +40,9 @@ using namespace llvm;
 using namespace std;
 
 
-NativeModule::NativeModule(string modName, list<NativeFunctionPtr> f, llvm::MCInstPrinter *p) :   
-                                                        funcs(f), 
-                                                        callGraph(f.size()), 
-                                                        nextID(0),
-                                                        nameStr(modName),
-                                                        MyPrinter(p)
-{ 
-
-    return;
-}
-
-string NativeModule::printModule(void) {
-    string  s = "";
-
-    return s;
-}
-
-NativeBlockPtr NativeFunction::block_from_id(uint64_t id) {
-    NativeBlockPtr                            b;
-    map<uint64_t, NativeBlockPtr>::iterator   it;
-
-    it = this->IDtoBlock.find(id);
-    if( it != this->IDtoBlock.end() ) {
-        b = (*it).second;
-    }
-
-    return b;
-}
-
-boost::uint64_t NativeFunction::entry_block_id() const {
-
-    map<VA, uint64_t>::const_iterator   it = this->baseToID.find(this->funcEntryVA);
-    LASSERT(it != this->baseToID.end(), "Block not found");
-
-    uint64_t    fBID = (*it).second;
-
-    return fBID;
-}
-
-NativeBlockPtr NativeFunction::block_from_base(VA base) {
-    NativeBlockPtr  b;
-
-    map<VA, uint64_t>::iterator   it = this->baseToID.find(base);
-    LASSERT(it != this->baseToID.end(), "Block not found");
-
-    uint64_t    fBID = (*it).second;
-
-    b = this->block_from_id(fBID);
-
-    LASSERT( b, "" );
-
-    return b;
-}
-
-void NativeFunction::compute_graph(void) {
-    //build a CFG in boost BGL from the data structures we have
-    this->graph = new CFG(this->nextBlockID);
-
-    //iterate over all of the keys in IDtoBlock
-    for(map<uint64_t, NativeBlockPtr>::iterator it = this->IDtoBlock.begin();
-        it != this->IDtoBlock.end();
-        ++it)
-    {   
-        uint64_t        blockId = (*it).first;
-        NativeBlockPtr  block = (*it).second;
-        list<VA>        &blockFollows = block->get_follows();
 
 
-        for(list<VA>::iterator fit = blockFollows.begin();
-            fit != blockFollows.end();
-            ++fit)
-        {   
-            uint64_t    fVA = *fit;
-            uint64_t    fBID;
 
-            //find the block ID for this VA
-            map<VA,uint64_t>::iterator mit = this->baseToID.find(fVA);
-            LASSERT( mit != this->baseToID.end(), "" );
-            fBID = (*mit).second;
-
-            //add an edge between the current block ID and the following
-            //block ID
-            add_edge(blockId, fBID, *(this->graph));
-        }
-    }
-
-    return;
-}
-
-NativeBlock::NativeBlock(VA b, MCInstPrinter *p) : baseAddr(b), MyPrinter(p) { }
-
-string NativeBlock::print_block(void) {
-    string                  s;
-    list<InstPtr>::iterator it;
-
-    s.append(to_string<uint64_t>(this->get_base(), hex)+"\\n ");
-    for(it = this->instructions.begin();
-        it != this->instructions.end();
-        ++it)
-    {
-        InstPtr ip = *it;
-        string st = ip->printInst();
-        s.append(st+"\\n ");
-    }
-
-    return s;
-}
-
-void NativeBlock::add_inst(InstPtr p) {
-    this->instructions.push_back(p);
-    return;
-}
-
-void NativeFunction::add_block(NativeBlockPtr b) {
-    uint64_t    blockBase = b->get_base();
-    uint64_t    curBlockID = this->nextBlockID;
-
-    this->nextBlockID++;
-
-    //check and make sure that we haven't added this block before
-    map<VA, uint64_t>::iterator   it = this->baseToID.find(blockBase);
-    LASSERT(it == this->baseToID.end(), "Added duplicate block!");
-
-    this->baseToID[blockBase] = curBlockID;
-    this->IDtoBlock[curBlockID] = b;
-
-    return;
-}
 
 const llvm::Target *findDisTarget(string arch) {
     const llvm::Target  *tgt = NULL;
@@ -243,30 +118,6 @@ void addExterns(list<NativeFunctionPtr> funcs, NativeModulePtr mod) {
     }
 
     return;
-}
-
-string NativeFunction::get_name(void) {
-    return string("sub_"+to_string<VA>(this->funcEntryVA, hex));
-}
-
-string NativeBlock::get_name(void) {
-    return string("block_0x"+to_string<VA>(this->baseAddr, hex));
-}
-
-void NativeModule::addDataSection(VA base, std::vector<uint8_t> &bytes)
-{
-    
-  DataSection ds;
-  DataSectionEntry dse(base, bytes);
-
-  ds.addEntry(dse);
-    
-  this->dataSecs.push_back(ds);
-}
-
-void NativeModule::addDataSection(const DataSection &d)
-{ 
-    this->dataSecs.push_back(d);
 }
 
 InstPtr deserializeInst(const ::Instruction &inst, LLVMByteDecoder &decoder)
